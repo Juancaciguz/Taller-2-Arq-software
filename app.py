@@ -4,51 +4,30 @@ import socket
 import os
 import boto3
 
-# --- 1. CONFIGURACIÓN Y CLIENTES ---
-
-# Lee las variables de entorno de AWS S3
 S3_BUCKET = os.environ.get('S3_BUCKET') 
-AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1') # Usa 'us-east-1' como default si no se especifica
+AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1') 
 
-# Inicializa el cliente S3. Boto3 busca las credenciales de AWS automáticamente
-# en las variables de entorno (AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY).
 try:
     s3_client = boto3.client(
         's3',
         region_name=AWS_REGION
     )
-    print("Cliente Boto3 inicializado correctamente.")
-except Exception as e:
-    # Si Boto3 falla (ej. sin credenciales), se establece a None y se usa una URL fallback
-    print(f"Advertencia: No se pudo inicializar Boto3. Las imágenes usarán placeholder. Error: {e}")
+except Exception:
     s3_client = None
 
-
-# Función para generar el URL público de S3
 def get_s3_image_url(image_key):
-    """Genera el URL público para una imagen dada su clave (nombre del archivo) en el bucket S3."""
     if s3_client and S3_BUCKET:
-        # Formato de URL de acceso público para S3 (funciona si el bucket es público)
         return f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{image_key}"
     else:
-        # Placeholder si el entorno S3 no está configurado o falló la conexión
         return "https://via.placeholder.com/200?text=S3+NO+CONFIGURADO" 
 
-
-# Función para obtener el ID del contenedor
 def get_container_id():
-    """Obtiene el hostname del sistema, que generalmente es el ID del contenedor en Docker."""
     try:
-        # Devuelve el hostname
         container_id = socket.gethostname()
     except Exception:
         container_id = "ID_no_disponible"
     return container_id
 
-
-# --- 2. DATOS DE LOS POKENEAS ---
-
-# La clave "Imagen_Key" almacena el nombre del archivo de la imagen en S3.
 POKENEAS = [
     {
         "Id": 1,
@@ -132,41 +111,23 @@ POKENEAS = [
     }
 ]
 
-# Inicializa la aplicación Flask
 app = Flask(__name__)
 
-
-# --- 3. RUTA DE DATOS (JSON) /pokenea/data ---
 @app.route('/pokenea/data', methods=['GET'])
 def pokenea_data():
-    """
-    Ruta 1: Despliega un JSON con ID, nombre, altura, habilidad de un Pokenea aleatorio
-    e incluye el ID del contenedor.
-    """
     pokenea_aleatorio = random.choice(POKENEAS)
-
-    # Crea el JSON con solo los campos requeridos
     data_json = {
         "id": pokenea_aleatorio["Id"],
         "nombre": pokenea_aleatorio["Nombre"],
         "altura": pokenea_aleatorio["Altura"],
         "habilidad": pokenea_aleatorio["Habilidad"],
-        "container_id": get_container_id() # Agrega el ID del contenedor
+        "container_id": get_container_id()
     }
-
     return jsonify(data_json)
 
-
-# --- 4. RUTA WEB (HTML) /pokenea/web ---
 @app.route('/pokenea/web', methods=['GET'])
 def pokenea_web():
-    """
-    Ruta 2: Muestra por pantalla la imagen y frase de un Pokenea aleatorio
-    y el ID del contenedor. La imagen se carga desde el URL generado por S3.
-    """
     pokenea_aleatorio = random.choice(POKENEAS)
-
-    # Obtiene la URL de la imagen usando la función S3
     imagen_url = get_s3_image_url(pokenea_aleatorio["Imagen_Key"])
     
     html_content = f"""
@@ -242,6 +203,15 @@ def pokenea_web():
     return html_content
 
 if __name__ == '__main__':
-    # Usamos host='0.0.0.0' para que sea accesible desde fuera del contenedor Docker
-    # y port=80, el puerto web estándar.
-    app.run(debug=True, host='0.0.0.0', port=80)
+    app.run(debug=True, host='0.0.0.0', port=5000)
+
+
+"""
+Pegar en la terminal para ejecutar la aplicación:
+ 1. En caso de que la terminal sea powershell: $env:S3_BUCKET="s3-bucket-378388076569"
+ 2. En caso de que la terminal sea powershell: $env:AWS_REGION="us-east-2"
+ 3. Ejecutar: python app.py
+ links:
+ - http://localhost:5000/pokenea/data
+ - http://localhost:5000/pokenea/web
+"""
