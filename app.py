@@ -23,7 +23,7 @@ def get_s3_image_url(image_key):
 
 def get_container_id():
     try:
-        container_id = socket.gethostname()
+        container_id = os.uname()[1]
     except Exception:
         container_id = "ID_no_disponible"
     return container_id
